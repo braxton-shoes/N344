@@ -256,7 +256,7 @@
             <div id="sizeSection" style="padding: 10px; border-radius: 8px; margin-bottom: 10px; transition: 0.5s;">
                 <div class="selector-header">
                     <span class="selector-title">Оберіть розмір: <span id="sizeText" style="font-weight:normal; color:#b17b44">не обрано</span></span>
-                    <span class="size-link" onclick="toggleSizeModal(true)">📏 Таблиця розмірів</span>
+                    <span class="size-link" onclick="toggleSizeModal(true, event)">📏 Таблиця розмірів</span>
                 </div>
                 <div class="size-options">
                     <button class="size-btn" onclick="selectSize(this)">39 (25.5см)</button>
@@ -403,9 +403,9 @@
         </div>
     </div>
 
-    <div id="sizeGuideModal" class="modal" onclick="toggleSizeModal(false)">
+    <div id="sizeGuideModal" class="modal" onclick="toggleSizeModal(false, event)">
         <div class="modal-content" onclick="event.stopPropagation()" style="text-align: center;">
-            <span class="close-modal" onclick="toggleSizeModal(false)">×</span>
+            <span class="close-modal" onclick="toggleSizeModal(false, event)">×</span>
             <h3 style="font-size: 22px; font-weight: 800;">Таблиця розмірів</h3>
             <img src="size-guide.jpg" alt="Таблиця розмірів" style="width: 100%; height: auto; border-radius: 8px; margin-top: 15px; display: block;">
         </div>
@@ -508,7 +508,8 @@
         
         updateGalleryImage();
         
-        if (document.getElementById('imageLightbox').style.display === 'flex') {
+        const lightbox = document.getElementById('imageLightbox');
+        if (lightbox.style.display === 'flex' || lightbox.style.display === 'block') {
             document.getElementById('lightboxImage').src = imgs[currentSlideIndex];
             document.getElementById('lbCounter').innerText = (currentSlideIndex + 1) + ' / ' + imgs.length;
         }
@@ -551,21 +552,27 @@
         this.style.transform = "scale(1)";
     });
 
-    // --- ЛАЙТБОКС (Мобільний зум та свайп) ---
+    // --- ЛАЙТБОКС ТА МОДАЛКИ (Захист від подвійного history.back) ---
     function openLightbox() {
-        if(window.innerWidth > 768) return; // На комп'ютері працює лупа
+        if(window.innerWidth > 768) return; 
+        const lightbox = document.getElementById('imageLightbox');
+        if (lightbox.style.display === 'flex') return;
+
         const imgs = productImages[activeColorKey];
-        
         document.getElementById('lightboxImage').src = imgs[currentSlideIndex];
         document.getElementById('lbCounter').innerText = (currentSlideIndex + 1) + ' / ' + imgs.length;
-        document.getElementById('imageLightbox').style.display = 'flex';
+        lightbox.style.display = 'flex';
         history.pushState({ modal: 'lightbox' }, '');
     }
 
     function closeLightbox(e) {
-        // Якщо клік був по картинці - не закриваємо, дозволяємо зум
-        if(e && e.target && e.target.tagName === 'IMG') return; 
-        document.getElementById('imageLightbox').style.display = 'none';
+        if(e && e.stopPropagation) e.stopPropagation();
+        if(e && e.target && e.target.tagName === 'IMG') return; // Дозволяємо зум по фото
+        
+        const lightbox = document.getElementById('imageLightbox');
+        if (lightbox.style.display !== 'flex') return;
+
+        lightbox.style.display = 'none';
         if (history.state && history.state.modal === 'lightbox') {
             history.back();
         }
@@ -577,9 +584,7 @@
         if(e.touches.length === 1) touchStartX = e.changedTouches[0].screenX; 
     }, {passive: true});
     lbImgWrap.addEventListener('touchend', e => { 
-        // Якщо картинка збільшена (зум), вимикаємо перелистування, щоб можна було рухати фото
         if (window.visualViewport && window.visualViewport.scale > 1.01) return;
-
         if(e.changedTouches.length === 1) {
             touchEndX = e.changedTouches[0].screenX; 
             handleSwipeGesture(); 
@@ -615,6 +620,9 @@
             return; 
         } 
         
+        const m = document.getElementById('orderModal');
+        if (m.style.display === 'flex') return;
+
         document.getElementById('orderSummary').innerHTML = `
             <div><strong>Модель:</strong> Туфлі Braxton з натуральної шкіри та замші</div>
             <div style="margin: 5px 0;"><strong>Колір:</strong> ${activeColorName}</div>
@@ -626,26 +634,34 @@
         document.getElementById('successMsg').style.display = 'none';
         document.getElementById('subBtn').disabled = false;
         document.getElementById('subBtn').innerText = 'Підтвердити замовлення';
-        
-        // Очищення форми прибрано звідси! Форма зберігає введені дані.
 
-        document.getElementById('orderModal').style.display = 'flex'; 
+        m.style.display = 'flex'; 
         history.pushState({ modal: 'order' }, '');
     }
 
     function closeOrderModal(e) { 
+        if(e && e.stopPropagation) e.stopPropagation();
         if(e && e.target && e.target.id !== 'orderModal' && !e.target.classList.contains('close-modal')) return;
-        document.getElementById('orderModal').style.display = 'none'; 
+        
+        const m = document.getElementById('orderModal');
+        if (m.style.display !== 'flex') return;
+
+        m.style.display = 'none'; 
         if (history.state && history.state.modal === 'order') {
             history.back();
         }
     }
     
-    function toggleSizeModal(s) { 
-        document.getElementById('sizeGuideModal').style.display = s ? 'flex' : 'none'; 
+    function toggleSizeModal(s, e) { 
+        if (e && e.stopPropagation) e.stopPropagation();
+        const m = document.getElementById('sizeGuideModal');
         if (s) {
+            if(m.style.display === 'flex') return;
+            m.style.display = 'flex';
             history.pushState({ modal: 'size' }, '');
         } else {
+            if(m.style.display !== 'flex') return;
+            m.style.display = 'none';
             if (history.state && history.state.modal === 'size') {
                 history.back();
             }
@@ -658,6 +674,7 @@
         document.getElementById('imageLightbox').style.display = 'none';
     });
 
+    // ПОКРАЩЕНА ПЕРЕВІРКА ТА ВІДПРАВКА ДАНИХ
     function sendFinalOrder(e) {
         e.preventDefault();
         const btn = document.getElementById('subBtn');
@@ -666,13 +683,22 @@
 
         const firstName = document.getElementById('custFirstName').value.trim();
         const lastName = document.getElementById('custLastName').value.trim();
-        const name = firstName + ' ' + lastName;
         const rawPhone = document.getElementById('custPhone').value.trim();
         const city = document.getElementById('custCity').value.trim();
         const post = document.getElementById('custPost').value.trim();
         const comment = document.getElementById('custComment').value.trim();
 
-        // 1. Перевірка імені на цифри (не повинно бути цифр)
+        // 0. Захист від порожніх полів (пробілів)
+        if (!firstName || !lastName || !rawPhone || !city || !post) {
+            alert('❌ Будь ласка, заповніть всі обов\'язкові поля!');
+            btn.disabled = false;
+            btn.innerText = 'Підтвердити замовлення';
+            return;
+        }
+
+        const name = firstName + ' ' + lastName;
+
+        // 1. Перевірка імені на цифри
         if (/\d/.test(name)) {
             alert('❌ Ім\'я та Прізвище не можуть містити цифри!');
             btn.disabled = false;
@@ -680,7 +706,7 @@
             return;
         }
 
-        // 2. Перевірка телефону
+        // 2. Перевірка телефону (мінімум 9 цифр)
         let cleanPhone = rawPhone.replace(/\D/g, ''); 
         if (cleanPhone.length < 9) {
             alert('❌ Будь ласка, введіть коректний номер телефону!');
@@ -697,7 +723,7 @@
             return;
         }
 
-        // 4. Перевірка пошти: чи є хоча б одна цифра?
+        // 4. Перевірка пошти (має бути хоча б одна цифра відділення)
         if (!/\d/.test(post)) {
             alert('❌ Будь ласка, вкажіть НОМЕР відділення або поштомату (цифрами)!');
             document.getElementById('custPost').focus();
